@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tower of Hanoi — Play in Browser</title>
+  <style>
+    :root{
+      --bg:#0f172a;          /* slate-900 */
+      --panel:#111827;       /* gray-900 */
+      --muted:#334155;       /* slate-600 */
+      --text:#e5e7eb;        /* gray-200 */
+      --accent:#22d3ee;      /* cyan-400 */
+      --accent-2:#a78bfa;    /* violet-400 */
+      --good:#34d399;        /* emerald-400 */
+      --warn:#f59e0b;        /* amber-500 */
+      --bad:#ef4444;         /* red-500 */
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;
+      background: radial-gradient(1200px 800px at 80% -10%, #1f2937 0%, var(--bg) 50%, #0b1023 100%);
+      color:var(--text);
+    }
+    header{
+      padding:18px 20px; display:flex; gap:14px; align-items:center; justify-content:space-between;
+    }
+    .title{font-weight:800; letter-spacing:.5px; font-size:clamp(18px, 2.2vw, 26px)}
+    .pill{background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); padding:10px 12px; border-radius:14px; display:flex; gap:10px; align-items:center}
+    .controls{display:flex; flex-wrap:wrap; gap:10px}
+    .controls > *{border-radius:12px; border:1px solid rgba(255,255,255,.1); background:#0b1226; color:var(--text); padding:10px 12px; font-weight:600}
+    .controls select{background:#0b1226}
+    .btn{cursor:pointer; transition:transform .06s ease, box-shadow .2s}
+    .btn:hover{transform:translateY(-1px)}
+    .btn.primary{background:linear-gradient(135deg, var(--accent), var(--accent-2)); color:#081019; border:none}
+    .btn.good{background:linear-gradient(135deg, #10b981, #34d399); border:none; color:#03140d}
+    .btn.warn{background:linear-gradient(135deg, #f59e0b, #fbbf24); border:none; color:#1a1002}
+    .btn.ghost{background:rgba(255,255,255,.06)}
+
+    .hud{display:flex; gap:10px; flex-wrap:wrap}
+    .stat{background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); padding:10px 14px; border-radius:12px}
+    .stat b{color:white}
+
+    main{max-width:1100px; margin:0 auto; padding:10px 16px 40px}
+    .board{
+      position:relative; margin-top:18px; background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+      border:1px solid rgba(255,255,255,.08); border-radius:22px; padding:20px; 
+      box-shadow: 0 10px 40px rgba(0,0,0,.45) inset, 0 10px 20px rgba(0,0,0,.2);
+    }
+    .pegs{display:grid; grid-template-columns:repeat(3, 1fr); gap:18px; align-items:end; min-height:360px}
+    .peg{
+      position:relative; height:320px; background:rgba(255,255,255,.03); border-radius:16px; border:1px dashed rgba(255,255,255,.12);
+      display:flex; align-items:flex-end; justify-content:center; padding:12px; transition: background .2s, border-color .2s;
+    }
+    .peg.highlight{background:rgba(34,211,238,.12); border-color:var(--accent)}
+    .rod{position:absolute; bottom:60px; width:10px; background:linear-gradient(180deg,#6b7280,#4b5563); border-radius:6px 6px 2px 2px; height:240px}
+    .base{position:absolute; bottom:20px; height:18px; width:80%; left:10%; background:linear-gradient(180deg,#6b7280,#374151); border-radius:12px}
+
+    .stack{position:absolute; bottom:38px; left:0; right:0; display:flex; flex-direction:column; align-items:center; gap:6px}
+
+    .disk{
+      height:28px; border-radius:14px; border:1px solid rgba(0,0,0,.25);
+      background:linear-gradient(180deg, rgba(255,255,255,.6), rgba(255,255,255,.2));
+      position:relative; 
+      cursor:grab; user-select:none; touch-action:none;
+      box-shadow: 0 8px 16px rgba(0,0,0,.25);
+      transition: transform .22s ease, box-shadow .22s ease;
+    }
+    .disk:active{cursor:grabbing}
+    .disk[data-top="false"]{opacity:.9}
+    .disk-label{position:absolute; inset:0; display:grid; place-items:center; font-weight:800; color:#0b1226; text-shadow:0 1px 0 rgba(255,255,255,.6)}
+
+    /* Disk color palette by size */
+    .disk.s1{background:linear-gradient(180deg,#fca5a5,#f87171)}
+    .disk.s2{background:linear-gradient(180deg,#fdba74,#fb923c)}
+    .disk.s3{background:linear-gradient(180deg,#fcd34d,#f59e0b)}
+    .disk.s4{background:linear-gradient(180deg,#86efac,#34d399)}
+    .disk.s5{background:linear-gradient(180deg,#67e8f9,#22d3ee)}
+    .disk.s6{background:linear-gradient(180deg,#93c5fd,#60a5fa)}
+    .disk.s7{background:linear-gradient(180deg,#c4b5fd,#a78bfa)}
+    .disk.s8{background:linear-gradient(180deg,#f0abfc,#e879f9)}
+
+    .footer{margin-top:14px; color:#94a3b8; font-size:14px}
+    kbd{background:#0b1226; border:1px solid rgba(255,255,255,.12); padding:2px 6px; border-radius:6px; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; color:#e2e8f0}
+
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="title">🏗️ Tower of Hanoi</div>
+    <div class="hud">
+      <div class="stat">Moves: <b id="moves">0</b> <small id="minMoves" style="opacity:.8; margin-left:6px"></small></div>
+      <div class="stat">Time: <b id="time">00:00</b></div>
+      <div class="stat">Best (<span id="bestN">3</span>): <b id="best">—</b></div>
+    </div>
+    <div class="controls">
+      <label class="pill">Disks
+        <select id="diskCount">
+          <option>3</option>
+          <option selected>4</option>
+          <option>5</option>
+          <option>6</option>
+          <option>7</option>
+          <option>8</option>
+        </select>
+      </label>
+      <button class="btn primary" id="newGame">New Game</button>
+      <button class="btn ghost" id="undo">Undo</button>
+      <button class="btn good" id="solve">Auto‑Solve</button>
+      <button class="btn warn" id="pause">Pause</button>
+      <button class="btn ghost" id="reset">Reset</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="board" aria-label="Tower of Hanoi board">
+      <div class="pegs">
+        <section class="peg" data-peg="A" aria-label="Peg A" tabindex="0">
+          <div class="rod" aria-hidden="true"></div>
+          <div class="base" aria-hidden="true"></div>
+          <div class="stack" id="pegA"></div>
+        </section>
+        <section class="peg" data-peg="B" aria-label="Peg B" tabindex="0">
+          <div class="rod" aria-hidden="true"></div>
+          <div class="base" aria-hidden="true"></div>
+          <div class="stack" id="pegB"></div>
+        </section>
+        <section class="peg" data-peg="C" aria-label="Peg C" tabindex="0">
+          <div class="rod" aria-hidden="true"></div>
+          <div class="base" aria-hidden="true"></div>
+          <div class="stack" id="pegC"></div>
+        </section>
+      </div>
+    </div>
+
+    <p class="footer">
+      Tip: Click a peg to pick up the top disk, then click another peg to drop it. You can also drag the top disk. 
+      Keyboard: select a peg with <kbd>Tab</kbd>, move with <kbd>Enter</kbd> or <kbd>Space</kbd>.
+    </p>
+    <div class="sr-only" aria-live="polite" id="live"></div>
+  </main>
+
+  <script>
+    // ======= Game State =======
+    const pegs = { A: [], B: [], C: [] }; // arrays of numbers (disk sizes)
+    const history = []; // stack of moves for undo
+    let N = 4;
+    let selectedPeg = null; // currently selected source peg for click-to-move
+    let moves = 0;
+    let timer = { start:null, id:null, paused:false, elapsed:0 };
+    let solving = false; // auto-solver running
+
+    const el = {
+      pegA: document.getElementById('pegA'),
+      pegB: document.getElementById('pegB'),
+      pegC: document.getElementById('pegC'),
+      pegs: Array.from(document.querySelectorAll('.peg')),
+      moves: document.getElementById('moves'),
+      time: document.getElementById('time'),
+      diskCount: document.getElementById('diskCount'),
+      newGame: document.getElementById('newGame'),
+      undo: document.getElementById('undo'),
+      solve: document.getElementById('solve'),
+      pause: document.getElementById('pause'),
+      reset: document.getElementById('reset'),
+      minMoves: document.getElementById('minMoves'),
+      best: document.getElementById('best'),
+      bestN: document.getElementById('bestN'),
+      live: document.getElementById('live')
+    };
+
+    // ======= Utilities =======
+    const fmt = n => n.toString().padStart(2,'0');
+    function updateTimer(){
+      const now = Date.now();
+      const elapsed = timer.paused ? timer.elapsed : (timer.elapsed + (now - timer.start));
+      const secs = Math.floor(elapsed/1000);
+      const m = Math.floor(secs/60), s = secs%60; 
+      el.time.textContent = `${fmt(m)}:${fmt(s)}`;
+    }
+    function startTimer(){
+      timer.start = Date.now();
+      if(timer.id) clearInterval(timer.id);
+      timer.id = setInterval(updateTimer, 250);
+      timer.paused = false;
+    }
+    function pauseTimer(){
+      if(timer.paused) return; 
+      timer.elapsed += (Date.now() - timer.start);
+      timer.paused = true; clearInterval(timer.id); timer.id=null;
+      updateTimer();
+    }
+    function resumeTimer(){
+      if(!timer.paused) return; 
+      timer.start = Date.now(); timer.paused=false; timer.id=setInterval(updateTimer,250);
+    }
+    function resetTimer(){
+      clearInterval(timer.id); timer = { start:null, id:null, paused:false, elapsed:0};
+      el.time.textContent = '00:00';
+    }
+
+    function minMovesOf(n){ return Math.pow(2,n)-1; }
+
+    function saveBestIfBetter(){
+      const key = `hanoi-best-${N}`;
+      const best = JSON.parse(localStorage.getItem(key) || 'null');
+      const secs = Math.floor((timer.elapsed + (timer.paused?0:Date.now()-timer.start))/1000);
+      const record = { moves, secs };
+      if(!best || record.moves < best.moves || (record.moves===best.moves && record.secs < best.secs)){
+        localStorage.setItem(key, JSON.stringify(record));
+      }
+    }
+    function showBest(){
+      const key = `hanoi-best-${N}`;
+      const best = JSON.parse(localStorage.getItem(key) || 'null');
+      if(best){ el.best.textContent = `${best.moves} moves, ${fmt(Math.floor(best.secs/60))}:${fmt(best.secs%60)}`; }
+      else { el.best.textContent = '—'; }
+      el.bestN.textContent = N;
+    }
+
+    // ======= Rendering =======
+    function render(){
+      // clear stacks
+      el.pegA.innerHTML = el.pegB.innerHTML = el.pegC.innerHTML = '';
+      ['A','B','C'].forEach((name, idx)=>{
+        const stack = document.getElementById('peg'+name);
+        pegs[name].forEach((size, i)=>{
+          const d = document.createElement('div');
+          d.className = `disk s${size}`;
+          const width = 38 + size*16; // px
+          d.style.width = width + '%';
+          d.style.maxWidth = `${80 + size*14}px`;
+          d.dataset.size = size;
+          d.dataset.top = (i === pegs[name].length-1);
+          d.draggable = (i === pegs[name].length-1);
+          d.setAttribute('aria-label', `disk ${size}`);
+          const lab = document.createElement('div'); lab.className='disk-label'; lab.textContent=size; d.appendChild(lab);
+          d.addEventListener('dragstart', e=> onDragStart(e, name));
+          stack.appendChild(d);
+        });
+      });
+      // update stats
+      el.moves.textContent = moves;
+      el.minMoves.textContent = `(min ${minMovesOf(N)})`;
+      showBest();
+    }
+
+    // ======= Game Logic =======
+    function canMove(from, to){
+      if(from===to) return false;
+      const src = pegs[from], dst = pegs[to];
+      if(src.length === 0) return false;
+      const disk = src[src.length-1];
+      if(dst.length === 0) return true;
+      return disk < dst[dst.length-1];
+    }
+    function move(from, to, recordHistory=true){
+      if(!canMove(from,to)) return false;
+      const disk = pegs[from].pop();
+      pegs[to].push(disk);
+      if(recordHistory) history.push({from,to});
+      moves++; render();
+      announce(`Moved disk from ${from} to ${to}.`);
+      checkWin();
+      return true;
+    }
+    function undoMove(){
+      const last = history.pop();
+      if(!last) return;
+      const {from,to} = last; // undo by reversing
+      const disk = pegs[to].pop(); pegs[from].push(disk);
+      moves++; // count as a move as well
+      render(); announce(`Undid move: ${to} to ${from}.`);
+    }
+
+    function checkWin(){
+      if(pegs.C.length === N || pegs.B.length === N){
+        pauseTimer(); solving=false;
+        saveBestIfBetter(); showBest();
+        document.body.style.setProperty('--panel','#0b1226');
+        announce(`Solved in ${moves} moves!`);
+      }
+    }
+
+    function announce(msg){ el.live.textContent = msg; }
+
+    // ======= Setup / Reset =======
+    function init(n){
+      N = n; moves=0; selectedPeg=null; history.length=0; solving=false;
+      pegs.A = Array.from({length:N}, (_,i)=> N-i); // N..1 with 1 smallest on top
+      pegs.B = []; pegs.C = [];
+      resetTimer(); startTimer();
+      el.diskCount.value = String(N);
+      document.body.style.setProperty('--panel','#111827');
+      render();
+    }
+
+    // ======= Click-to-move & Keyboard =======
+    function onPegActivate(name){
+      if(solving) return;
+      if(selectedPeg === null){
+        if(pegs[name].length===0){ announce('No disk to pick up.'); return; }
+        selectedPeg = name; highlight(name,true);
+        announce(`Picked from ${name}. Choose a target peg.`);
+      }else{
+        if(move(selectedPeg, name)){
+          // success
+        }else{
+          announce('Illegal move.');
+        }
+        highlight(selectedPeg,false); selectedPeg=null;
+      }
+    }
+    function highlight(name, on){
+      const peg = el.pegs.find(p=>p.dataset.peg===name); if(peg) peg.classList.toggle('highlight', !!on);
+    }
+
+    el.pegs.forEach(peg=>{
+      const name = peg.dataset.peg;
+      peg.addEventListener('click', ()=> onPegActivate(name));
+      peg.addEventListener('keydown', (e)=>{
+        if(e.key==='Enter' || e.key===' '){ e.preventDefault(); onPegActivate(name); }
+      });
+    });
+
+    // ======= Drag & Drop (top disk only) =======
+    function onDragStart(e, from){
+      if(solving) { e.preventDefault(); return; }
+      const top = pegs[from][pegs[from].length-1];
+      e.dataTransfer.setData('text/plain', JSON.stringify({from}));
+      e.dataTransfer.effectAllowed = 'move';
+      selectedPeg = from; highlight(from,true);
+    }
+    el.pegs.forEach(peg=>{
+      peg.addEventListener('dragover', e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; });
+      peg.addEventListener('drop', e=>{
+        e.preventDefault();
+        const to = peg.dataset.peg;
+        const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+        if(data && data.from){ move(data.from, to); }
+        highlight(data.from,false); selectedPeg=null;
+      });
+    });
+
+    // ======= Auto Solver =======
+    function hanoiMoves(n, from, aux, to, list){
+      if(n===0) return;
+      hanoiMoves(n-1, from, to, aux, list);
+      list.push([from,to]);
+      hanoiMoves(n-1, aux, from, to, list);
+    }
+
+    function autoSolve(){
+      if(solving) return; solving=true; selectedPeg=null; el.pegs.forEach(p=>p.classList.remove('highlight'));
+      // Build ideal move list from current state only if in starting position
+      const isStart = pegs.A.length===N && pegs.B.length===0 && pegs.C.length===0;
+      let movesList = [];
+      if(isStart){
+        hanoiMoves(N,'A','B','C',movesList);
+      }else{
+        // generic solver from arbitrary state is complex; fall back to assisting from current top move
+        // Strategy: try to continue solving aiming for all disks to C using standard parity rule
+        const target = (N % 2 === 0) ? 'B' : 'C'; // first move target for smallest disk
+        hanoiMoves(pegs.A.length,'A','B','C',movesList); // continue for remaining on A
+      }
+      let i=0;
+      const interval = setInterval(()=>{
+        if(!movesList[i]){ clearInterval(interval); solving=false; checkWin(); return; }
+        const [from,to] = movesList[i++];
+        move(from,to);
+      }, 300);
+    }
+
+    // ======= Controls =======
+    el.newGame.addEventListener('click', ()=> init(parseInt(el.diskCount.value,10)));
+    el.reset.addEventListener('click', ()=> init(N));
+    el.diskCount.addEventListener('change', ()=> init(parseInt(el.diskCount.value,10)));
+    el.undo.addEventListener('click', ()=> undoMove());
+    el.solve.addEventListener('click', autoSolve);
+    el.pause.addEventListener('click', ()=>{
+      if(timer.paused){ resumeTimer(); el.pause.textContent='Pause'; }
+      else { pauseTimer(); el.pause.textContent='Resume'; }
+    });
+
+    // Start first game
+    init(N);
+  </script>
+</body>
+</html>
